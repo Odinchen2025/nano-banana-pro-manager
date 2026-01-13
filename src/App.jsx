@@ -250,16 +250,28 @@ export default function App() {
       return;
     }
 
-    // --- 新增：Google Drive 連結自動轉換邏輯 ---
+    // --- 新增：Google Drive 連結自動轉換邏輯 (升級版) ---
     let finalThumbnail = activePrompt.thumbnail.trim();
     
-    // 檢查是否為 Google Drive 分享連結
-    if (finalThumbnail.includes('drive.google.com') && finalThumbnail.includes('/view')) {
-      // 提取 File ID
+    // 檢查是否為 Google Drive 連結 (包含 file/d/ 或 id=)
+    if (finalThumbnail.includes('drive.google.com')) {
+      let fileId = '';
+      // 嘗試匹配 /file/d/xxxx
       const fileIdMatch = finalThumbnail.match(/\/d\/([a-zA-Z0-9_-]+)/);
       if (fileIdMatch && fileIdMatch[1]) {
-        // 轉換為直連圖片格式 (Direct Link)
-        finalThumbnail = `https://drive.google.com/uc?export=view&id=${fileIdMatch[1]}`;
+        fileId = fileIdMatch[1];
+      } else {
+        // 嘗試匹配 id=xxxx
+        const idMatch = finalThumbnail.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (idMatch && idMatch[1]) {
+          fileId = idMatch[1];
+        }
+      }
+
+      if (fileId) {
+        // 使用 Google Drive 縮圖 API，加上 sz=w2560 來獲取高解析度圖片
+        // 這種方式比 uc?export=view 更穩定，比較不會遇到 403 錯誤
+        finalThumbnail = `https://drive.google.com/thumbnail?id=${fileId}&sz=w2560`;
       }
     }
     // ------------------------------------------
