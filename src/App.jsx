@@ -250,7 +250,7 @@ export default function App() {
       return;
     }
 
-    // --- 新增：Google Drive 連結自動轉換邏輯 (升級版) ---
+    // --- 新增：Google Drive 連結自動轉換邏輯 (修復版) ---
     let finalThumbnail = activePrompt.thumbnail.trim();
     
     // 檢查是否為 Google Drive 連結 (包含 file/d/ 或 id=)
@@ -269,9 +269,9 @@ export default function App() {
       }
 
       if (fileId) {
-        // 使用 Google Drive 縮圖 API，加上 sz=w2560 來獲取高解析度圖片
-        // 這種方式比 uc?export=view 更穩定，比較不會遇到 403 錯誤
-        finalThumbnail = `https://drive.google.com/thumbnail?id=${fileId}&sz=w2560`;
+        // 使用 lh3.googleusercontent.com 格式，這是目前針對公開檔案最穩定的圖床連結
+        // 它可以繞過部分 Google Drive 的防盜連機制
+        finalThumbnail = `https://lh3.googleusercontent.com/d/${fileId}`;
       }
     }
     // ------------------------------------------
@@ -462,6 +462,7 @@ export default function App() {
                       src={prompt.thumbnail} 
                       alt={prompt.title} 
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      referrerPolicy="no-referrer"
                       onError={(e) => {
                          e.target.onerror = null; 
                          e.target.src = "https://placehold.co/600x400/f1f5f9/94a3b8?text=No+Preview";
@@ -537,7 +538,12 @@ export default function App() {
               <div className="lg:col-span-1 space-y-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                   <div className="aspect-video rounded-lg overflow-hidden bg-slate-100 mb-4">
-                    <img src={activePrompt.thumbnail} className="w-full h-full object-cover" alt="style" />
+                    <img 
+                      src={activePrompt.thumbnail} 
+                      className="w-full h-full object-cover" 
+                      alt="style" 
+                      referrerPolicy="no-referrer"
+                    />
                   </div>
                   <h3 className="font-bold text-lg text-slate-800">{activePrompt.title}</h3>
                   <div className="mt-2 text-xs text-slate-500 bg-slate-50 p-3 rounded border border-slate-100 font-mono break-all">
@@ -776,7 +782,12 @@ export default function App() {
                 </p>
                 {activePrompt.thumbnail && (
                   <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 h-32 w-full bg-slate-50">
-                    <img src={activePrompt.thumbnail} className="w-full h-full object-cover" alt="Preview" />
+                    <img 
+                      src={activePrompt.thumbnail} 
+                      className="w-full h-full object-cover" 
+                      alt="Preview" 
+                      referrerPolicy="no-referrer"
+                    />
                   </div>
                 )}
               </div>
