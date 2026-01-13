@@ -19,7 +19,10 @@ import {
   Send,
   Download,
   Upload,
-  Clock
+  Clock,
+  Settings,
+  HardDrive,
+  Lock // 新增：鎖頭圖示
 } from 'lucide-react';
 
 // 預設的風格圖庫，用於自動分派縮圖
@@ -55,9 +58,16 @@ export default function App() {
   // 資料狀態
   const [prompts, setPrompts] = useState([]);
   
-  // 視圖狀態: 'library' | 'generator'
+  // 視圖狀態: 'library' | 'generator' | 'settings'
   const [currentView, setCurrentView] = useState('library');
   
+  // 全域設定狀態
+  const [appSettings, setAppSettings] = useState({
+    defaultWidth: 1024,
+    defaultHeight: 1024,
+    defaultSteps: 30
+  });
+
   // 互動狀態
   const [activePrompt, setActivePrompt] = useState(null); // 當前選中要使用或編輯的 Prompt
   const [isModalOpen, setIsModalOpen] = useState(false); // 新增/編輯視窗
@@ -65,6 +75,10 @@ export default function App() {
   const [generatedResult, setGeneratedResult] = useState(null); // 最終生成的 JSON
   const fileInputRef = useRef(null); // 用於匯入檔案
   
+  // 權限驗證狀態 (新增)
+  const [authAction, setAuthAction] = useState(null); // { type: 'edit' | 'delete', data: any }
+  const [passwordInput, setPasswordInput] = useState('');
+
   // 輔助狀態
   const [searchTerm, setSearchTerm] = useState('');
   const [showToast, setShowToast] = useState(false);
@@ -74,20 +88,37 @@ export default function App() {
 
   // 初始化
   useEffect(() => {
-    const saved = localStorage.getItem('nano-banana-prompts-v2');
-    if (saved) {
-      setPrompts(JSON.parse(saved));
-    } else {
+    try {
+      const savedData = localStorage.getItem('nano-banana-prompts-v2');
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        if (Array.isArray(parsedData)) setPrompts(parsedData);
+        else setPrompts(INITIAL_DATA);
+      } else {
+        setPrompts(INITIAL_DATA);
+      }
+
+      const savedSettings = localStorage.getItem('nano-banana-settings');
+      if (savedSettings) {
+        setAppSettings(JSON.parse(savedSettings));
+      }
+    } catch (error) {
+      console.error('讀取 LocalStorage 發生錯誤:', error);
       setPrompts(INITIAL_DATA);
     }
   }, []);
 
-  // 儲存
+  // 儲存資料
   useEffect(() => {
     if (prompts.length > 0) {
       localStorage.setItem('nano-banana-prompts-v2', JSON.stringify(prompts));
     }
   }, [prompts]);
+
+  // 儲存設定
+  useEffect(() => {
+    localStorage.setItem('nano-banana-settings', JSON.stringify(appSettings));
+  }, [appSettings]);
 
   const handleToast = (msg) => {
     setToastMsg(msg);
@@ -108,16 +139,23 @@ export default function App() {
   // --- 資料匯入匯出 (GitHub Ready) ---
 
   const handleExport = () => {
-    const dataStr = JSON.stringify(prompts, null, 2);
+    const exportData = {
+      version: "1.0",
+      timestamp: new Date().toISOString(),
+      settings: appSettings,
+      prompts: prompts
+    };
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `nano-banana-prompts-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = `nano-banana-backup-${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    handleToast('已匯出 JSON 備份');
+    handleToast('已匯出完整備份 (包含設定)');
   };
 
   const handleImportClick = () => {
@@ -134,7 +172,11 @@ export default function App() {
         const importedData = JSON.parse(e.target.result);
         if (Array.isArray(importedData)) {
           setPrompts(importedData);
-          handleToast('資料匯入成功！');
+          handleToast('舊版資料匯入成功！');
+        } else if (importedData.prompts && Array.isArray(importedData.prompts)) {
+          setPrompts(importedData.prompts);
+          if (importedData.settings) setAppSettings(importedData.settings);
+          handleToast('完整備份匯入成功！');
         } else {
           handleToast('檔案格式錯誤');
         }
@@ -143,13 +185,37 @@ export default function App() {
       }
     };
     reader.readAsText(file);
-    // 重置 input 以便重複選擇同個檔案
     event.target.value = '';
+  };
+
+  // --- 權限驗證邏輯 (New) ---
+  
+  const requestAuth = (e, type, data) => {
+    e.stopPropagation();
+    setAuthAction({ type, data });
+    setPasswordInput('');
+  };
+
+  const verifyAuth = () => {
+    if (passwordInput === '1206') {
+      if (authAction.type === 'edit') {
+        setActivePrompt({ ...authAction.data });
+        setIsModalOpen(true);
+      } else if (authAction.type === 'delete') {
+        setDeleteId(authAction.data); // 驗證成功後，開啟原本的刪除確認視窗
+      }
+      setAuthAction(null);
+      setPasswordInput('');
+      handleToast('權限驗證成功');
+    } else {
+      handleToast('密碼錯誤，拒絕存取');
+    }
   };
 
   // --- 管理邏輯 (CRUD) ---
 
   const openCreator = () => {
+    // 新增不需要密碼 (除非您也想鎖定)
     setActivePrompt({
       id: Date.now().toString(),
       title: '',
@@ -160,16 +226,7 @@ export default function App() {
     setIsModalOpen(true);
   };
 
-  const openEditor = (e, prompt) => {
-    e.stopPropagation(); // 阻止冒泡，避免觸發「使用」邏輯
-    setActivePrompt({ ...prompt });
-    setIsModalOpen(true);
-  };
-
-  const confirmDelete = (e, id) => {
-    e.stopPropagation(); // 阻止冒泡
-    setDeleteId(id);
-  };
+  // 舊的 openEditor 與 confirmDelete 已被 requestAuth 取代，但保留 executeDelete
 
   const executeDelete = () => {
     if (deleteId) {
@@ -193,11 +250,10 @@ export default function App() {
       return;
     }
 
-    // 智慧縮圖邏輯：若無縮圖，自動填入隨機圖
     const promptToSave = {
       ...activePrompt,
       thumbnail: activePrompt.thumbnail.trim() || getRandomThumbnail(),
-      updatedAt: new Date().toISOString() // 確保更新時間戳記
+      updatedAt: new Date().toISOString()
     };
 
     const exists = prompts.find(p => p.id === promptToSave.id);
@@ -214,8 +270,10 @@ export default function App() {
 
   const handleReset = () => {
     localStorage.removeItem('nano-banana-prompts-v2');
+    localStorage.removeItem('nano-banana-settings');
     setPrompts(INITIAL_DATA);
-    handleToast('已重置為預設資料');
+    setAppSettings({ defaultWidth: 1024, defaultHeight: 1024, defaultSteps: 30 });
+    handleToast('系統已完全重置');
     setConfirmReset(false);
   };
 
@@ -235,7 +293,6 @@ export default function App() {
       return;
     }
 
-    // 核心邏輯：內容 + 風格
     const finalPrompt = `${userInput}, ${activePrompt.prompt}`;
 
     const payload = {
@@ -243,9 +300,9 @@ export default function App() {
       engine: "nano-banana-pro",
       prompt: finalPrompt,
       parameters: {
-        width: 1024,
-        height: 1024,
-        steps: 30,
+        width: appSettings.defaultWidth,
+        height: appSettings.defaultHeight,
+        steps: appSettings.defaultSteps,
         cfg_scale: 7.0
       }
     };
@@ -256,34 +313,26 @@ export default function App() {
 
   const copyResult = () => {
     if (generatedResult) {
-      // Fallback: 使用 textarea + execCommand 以避免 iframe 權限問題
       const textArea = document.createElement("textarea");
       textArea.value = generatedResult;
-      
-      // 設定樣式使其不可見且不影響版面
       textArea.style.position = "fixed";
       textArea.style.left = "-9999px";
-      textArea.style.top = "0";
       document.body.appendChild(textArea);
-      
       textArea.focus();
       textArea.select();
       
       try {
         const successful = document.execCommand('copy');
-        if (successful) {
-          handleToast('已複製 JSON 指令');
-        } else {
-          handleToast('複製失敗，請手動複製');
-        }
+        if (successful) handleToast('已複製 JSON 指令');
+        else handleToast('複製失敗');
       } catch (err) {
-        console.error('Copy failed', err);
         handleToast('複製發生錯誤');
       }
-      
       document.body.removeChild(textArea);
     }
   };
+
+  // --- UI 元件 ---
 
   const filteredPrompts = prompts.filter(p => 
     p.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -292,7 +341,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
       
-      {/* 隱藏的檔案輸入框 */}
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -331,29 +379,12 @@ export default function App() {
           <div className="flex items-center gap-2">
             {currentView === 'library' ? (
               <>
-                 <div className="hidden sm:flex items-center gap-1 mr-2 border-r border-slate-200 pr-3">
-                   <button 
-                    onClick={handleImportClick}
-                    className="p-2 text-slate-400 hover:text-slate-700 transition-colors rounded-lg hover:bg-slate-50"
-                    title="匯入備份 (Import JSON)"
-                  >
-                    <Upload className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={handleExport}
-                    className="p-2 text-slate-400 hover:text-slate-700 transition-colors rounded-lg hover:bg-slate-50"
-                    title="匯出備份 (Export JSON)"
-                  >
-                    <Download className="w-5 h-5" />
-                  </button>
-                 </div>
-
                 <button 
-                  onClick={() => setConfirmReset(true)}
-                  className="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-slate-50"
-                  title="重置"
+                  onClick={() => setCurrentView('settings')}
+                  className="p-2 text-slate-400 hover:text-slate-700 transition-colors rounded-lg hover:bg-slate-50 relative group"
+                  title="系統設定"
                 >
-                  <RotateCcw className="w-5 h-5" />
+                  <Settings className="w-5 h-5" />
                 </button>
                 <button 
                   onClick={openCreator}
@@ -376,11 +407,11 @@ export default function App() {
         </div>
       </header>
 
-      {/* 視圖切換邏輯 */}
+      {/* 主要內容區 */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {currentView === 'library' ? (
-          // =================== Library View (Prompt 列表) ===================
+        {/* === 視圖 1: Library (列表) === */}
+        {currentView === 'library' && (
           <>
             <div className="flex justify-between items-end mb-6">
               <div>
@@ -430,7 +461,7 @@ export default function App() {
                       {prompt.prompt}
                     </p>
 
-                    {/* 管理按鈕區 (Stop Propagation) */}
+                    {/* 管理按鈕區 (需權限驗證) */}
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-slate-400">
                       <div className="flex items-center gap-1 text-[10px] bg-slate-50 px-2 py-1 rounded text-slate-400" title={`最後更新: ${formatDate(prompt.updatedAt)}`}>
                         <Clock className="w-3 h-3" />
@@ -438,16 +469,16 @@ export default function App() {
                       </div>
                       <div className="flex gap-1 z-10">
                         <button 
-                          onClick={(e) => openEditor(e, prompt)}
+                          onClick={(e) => requestAuth(e, 'edit', prompt)} // 改用 requestAuth
                           className="p-2 hover:bg-slate-100 hover:text-slate-700 rounded-full transition-colors"
-                          title="管理/編輯"
+                          title="管理/編輯 (需密碼)"
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={(e) => confirmDelete(e, prompt.id)}
+                          onClick={(e) => requestAuth(e, 'delete', prompt.id)} // 改用 requestAuth
                           className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full transition-colors"
-                          title="刪除"
+                          title="刪除 (需密碼)"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -469,9 +500,10 @@ export default function App() {
               </div>
             </div>
           </>
-        ) : (
-          // =================== Generator View (產生器) ===================
-          // 修正：使用 simple-fade-up，避免原本 fade-in-up 帶有的水平位移
+        )}
+
+        {/* === 視圖 2: Generator (產生器) === */}
+        {currentView === 'generator' && activePrompt && (
           <div className="animate-simple-fade-up max-w-5xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               
@@ -490,8 +522,6 @@ export default function App() {
 
               {/* 右側：輸入與生成 */}
               <div className="lg:col-span-2 space-y-6">
-                
-                {/* 1. 輸入區 */}
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                   <label className="block text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
                     <Terminal className="w-4 h-4 text-yellow-500" />
@@ -520,7 +550,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 2. 結果區 */}
                 {generatedResult && (
                   <div className="bg-slate-900 rounded-xl p-6 border border-slate-800 animate-slide-in-right relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-10">
@@ -552,12 +581,117 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* === 視圖 3: Settings (設定頁面) === */}
+        {currentView === 'settings' && (
+          <div className="max-w-3xl mx-auto animate-simple-fade-up">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="p-6 border-b border-slate-100">
+                <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                  <Settings className="w-6 h-6 text-slate-600" />
+                  系統設定
+                </h2>
+                <p className="text-slate-500 text-sm mt-1">管理資料備份與產生器預設值</p>
+              </div>
+
+              <div className="p-6 space-y-8">
+                {/* 1. 資料管理區 */}
+                <section>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <HardDrive className="w-4 h-4" /> 資料管理
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 transition-colors">
+                      <h4 className="font-bold text-slate-800 mb-1">匯出備份 (Backup)</h4>
+                      <p className="text-xs text-slate-500 mb-4">下載所有風格資料與設定為 JSON 檔。</p>
+                      <button 
+                        onClick={handleExport}
+                        className="w-full py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center gap-2"
+                      >
+                        <Download className="w-4 h-4" /> 下載 JSON
+                      </button>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 transition-colors">
+                      <h4 className="font-bold text-slate-800 mb-1">匯入備份 (Restore)</h4>
+                      <p className="text-xs text-slate-500 mb-4">從 JSON 檔案還原所有資料。</p>
+                      <button 
+                        onClick={handleImportClick}
+                        className="w-full py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center gap-2"
+                      >
+                        <Upload className="w-4 h-4" /> 選擇檔案
+                      </button>
+                    </div>
+                  </div>
+                </section>
+
+                <hr className="border-slate-100" />
+
+                {/* 2. 預設參數區 */}
+                <section>
+                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Sliders className="w-4 h-4" /> 預設生成參數
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-2">預設寬度 (Width)</label>
+                      <input 
+                        type="number" 
+                        value={appSettings.defaultWidth}
+                        onChange={(e) => setAppSettings({...appSettings, defaultWidth: parseInt(e.target.value) || 1024})}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-2">預設高度 (Height)</label>
+                      <input 
+                        type="number" 
+                        value={appSettings.defaultHeight}
+                        onChange={(e) => setAppSettings({...appSettings, defaultHeight: parseInt(e.target.value) || 1024})}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-600 mb-2">預設步數 (Steps)</label>
+                      <input 
+                        type="number" 
+                        value={appSettings.defaultSteps}
+                        onChange={(e) => setAppSettings({...appSettings, defaultSteps: parseInt(e.target.value) || 30})}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                <hr className="border-slate-100" />
+
+                {/* 3. 危險區域 */}
+                <section>
+                  <h3 className="text-sm font-bold text-red-600 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" /> 危險區域
+                  </h3>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-red-900 text-sm">重置系統 (Factory Reset)</h4>
+                      <p className="text-xs text-red-700 mt-1">這將會清除所有本地資料，還原至初始狀態。</p>
+                    </div>
+                    <button 
+                      onClick={() => setConfirmReset(true)}
+                      className="px-4 py-2 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-600 hover:text-white transition-colors"
+                    >
+                      重置所有資料
+                    </button>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* 新增/編輯 Modal */}
       {isModalOpen && activePrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          {/* 使用 modal-pop 確保不偏移 */}
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-modal-pop overflow-hidden flex flex-col max-h-[90vh]">
             
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white">
@@ -634,10 +768,49 @@ export default function App() {
         </div>
       )}
 
+      {/* 密碼驗證 Modal (新增) */}
+      {authAction && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-modal-pop">
+            <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mb-4 mx-auto">
+              <Lock className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">權限驗證</h3>
+            <p className="text-sm text-slate-500 mb-4">
+              此操作需要管理員權限，請輸入密碼。
+            </p>
+            
+            <input 
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none text-center mb-4 font-mono text-lg"
+              placeholder="請輸入密碼"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && verifyAuth()}
+            />
+
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setAuthAction(null)} 
+                className="flex-1 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200"
+              >
+                取消
+              </button>
+              <button 
+                onClick={verifyAuth} 
+                className="flex-1 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 shadow-lg"
+              >
+                確認
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 刪除確認 Modal */}
       {deleteId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          {/* 修正：動畫加在內部 div，並使用 modal-pop */}
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-modal-pop">
             <div className="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4 mx-auto">
               <AlertTriangle className="w-6 h-6" />
@@ -655,7 +828,6 @@ export default function App() {
       {/* 重置確認 Modal */}
       {confirmReset && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-           {/* 修正：動畫加在內部 div，並使用 modal-pop */}
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-modal-pop">
             <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-4 mx-auto">
               <RotateCcw className="w-6 h-6" />
@@ -699,7 +871,6 @@ export default function App() {
           from { transform: translate(-50%, 20px); opacity: 0; }
           to { transform: translate(-50%, 0); opacity: 1; }
         }
-        /* 新增：純垂直位移，無水平偏移的動畫 */
         @keyframes simple-fade-up {
           from { transform: translateY(20px); opacity: 0; }
           to { transform: translateY(0); opacity: 1; }
