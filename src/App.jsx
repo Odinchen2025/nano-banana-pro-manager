@@ -250,9 +250,23 @@ export default function App() {
       return;
     }
 
+    // --- 新增：Google Drive 連結自動轉換邏輯 ---
+    let finalThumbnail = activePrompt.thumbnail.trim();
+    
+    // 檢查是否為 Google Drive 分享連結
+    if (finalThumbnail.includes('drive.google.com') && finalThumbnail.includes('/view')) {
+      // 提取 File ID
+      const fileIdMatch = finalThumbnail.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (fileIdMatch && fileIdMatch[1]) {
+        // 轉換為直連圖片格式 (Direct Link)
+        finalThumbnail = `https://drive.google.com/uc?export=view&id=${fileIdMatch[1]}`;
+      }
+    }
+    // ------------------------------------------
+
     const promptToSave = {
       ...activePrompt,
-      thumbnail: activePrompt.thumbnail.trim() || getRandomThumbnail(),
+      thumbnail: finalThumbnail || getRandomThumbnail(), // 使用轉換後的網址
       updatedAt: new Date().toISOString()
     };
 
