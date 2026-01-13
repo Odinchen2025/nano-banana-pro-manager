@@ -38,18 +38,88 @@ const DEFAULT_THUMBNAILS = [
 // 模擬的初始資料
 const INITIAL_DATA = [
   {
-    id: '1',
-    title: '賽博龐克城市 (Cyberpunk Style)',
-    prompt: 'futuristic city, neon lights, rain, reflection, 8k resolution, highly detailed, cyberpunk style, dark atmosphere',
-    thumbnail: 'https://images.unsplash.com/photo-1535498730771-e735b998cd64?q=80&w=600&auto=format&fit=crop',
-    updatedAt: new Date().toISOString()
+    "id": "1768286603435",
+    "title": "瑞士風",
+    "prompt": "Overall Design Settings:\n  Tone: \"International Style, Discipline, Modern, Clear, Objective.\"\n  Visual Identity:\n    Background Color: \"#F0F0F0 (Light Gray)\"\n    Text Color: \"#000000 (Black)\"\n    Accent Color: \"#FF0000 (Red) only.\"\n    Image Style:\n      Features: \"Principles of Swiss Typography.\"\n      Composition: \"Modular Grid System.\"\n      Elements: \"Typesetting itself as main visual.\"\n      Photo: \"Combination of Monochrome photo and Color plane.\"\n  Typography:\n    Heading: \"Helvetica.\"\n    Style: \"Flush Left, Large Heading.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1c_N_xkEtRstr1mXyWt6O5hfx4IqrrN2A",
+    "updatedAt": "2026-01-13T06:45:59.625Z"
   },
   {
-    id: '2',
-    title: '油畫風格 (Oil Painting)',
-    prompt: 'oil painting style, thick brushstrokes, texture canvas, classic art, rembrandt lighting, masterpiece',
-    thumbnail: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=600&auto=format&fit=crop',
-    updatedAt: new Date().toISOString()
+    "id": "1768286416643",
+    "title": "熱能光譜",
+    "prompt": "全体デザイン設定:\n  トーン: \"科学的, 異質, 視覚化, 温度, 分析。\"\n  ビジュアル・アイデンティティ:\n    背景色: \"#000080 (Cold Blue)\"\n    文字色: \"#FFFFFF (White)\"\n    アクセントカラー: \"#FF0000 (Hot Red)\"、\"#FFFF00 (Warm Yellow)\"\n    画像スタイル:\n      特徴: \"サーモグラフィーによる熱分布の可視化。\"\n      色調: \"青（冷）から赤・白（熱）へのスペクトルカラー。\"\n      イメージャリ: \"人物、建物、機械の熱画像。\"\n      質感: \"デジタルなグラデーション。\"\n  タイポグラフィ:\n    見出し: \"HUD風のテクニカルフォント。\"\n    スタイル: \"温度数値のオーバーレイ。\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1qyTd-jlUY3RoTz7GuzPpyoQW_ElLantu",
+    "updatedAt": "2026-01-13T06:42:44.068Z"
+  },
+  {
+    "id": "1768286152943",
+    "title": "向量極簡工業風格",
+    "prompt": "Overall Design Settings:\n  Tone: \"Sincere, Professional, Refined, Serene\"\n  Visual Identity:\n    Background Color: \"Pure White (#FFFFFF) or Pale Blue Gray (#F5F7FA)\"\n    Text Color: \"Navy Blue (#0A2540) - Conveys trust\"\n    Accent Color: \"Royal Blue (#0052CC) or Intelligent Blue (#00B8D9)\"\n    Image Style:\n      Features: \"Flat Vector Illustration, Geometric Shapes, Clean Composition\"\n      Shape: \"Sharp Edges, or Orderly Circles\"\n  Typography:\n    Heading: \"Modern Bold Sans-serif (Inter, Helvetica). Wide Kerning for Intellectual Feel.\"\n    Body: \"Clean Sans-serif. Readability First.\"\n    Numbers: \"Monospace or Geometric Numerals. Shows Data Precisely.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1hIKMh835M_Gz7hA78qTVkkSjBUiy5RRk",
+    "updatedAt": "2026-01-13T06:39:43.967Z"
+  },
+  {
+    "id": "1768285797200",
+    "title": "移軸微縮",
+    "prompt": "Overall Design Settings:\n  Tone: \"Cute, Miniature Garden, Toy, Bird's-eye view, Unreal.\"\n  Visual Identity:\n    Background Color: \"Real photo color of Urban or Landscape.\"\n    Text Color: \"#FFFFFF (White)\"\n    Accent Color: \"Primary colors with increased saturation.\"\n    Image Style:\n      Features: \"Miniature effect with Tilt-shift lens.\"\n      Effects: \"Strong blur at top and bottom, Focus in center, Color saturation emphasis.\"\n      Imagery: \"Urban, Cars, People looking like toys.\"\n      Viewpoint: \"Bird's-eye view from diagonally above.\"\n  Typography:\n    Heading: \"Rounded Sans-serif.\"\n    Style: \"Toy package style.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/11zzmW6Bdo3yubL63w1xoEufOJnMflpuW",
+    "updatedAt": "2026-01-13T06:35:19.120Z"
+  },
+  {
+    "id": "1768285142935",
+    "title": "建築藍晒圖",
+    "prompt": "Overall Design Settings:\n  Tone: \"Planning, Design, Industrial, Precise, Intellectual.\"\n  Visual Identity:\n    Background Color: \"#0047AB (Cobalt Blue) - Blueprint Color.\"\n    Text Color: \"#FFFFFF (White)\"\n    Accent Color: \"#87CEEB (Sky Blue)\"\n    Image Style:\n      Features: \"Aesthetics of Architectural Drawing (Blueprint).\"\n      Line Art: \"White Line Drafting.\"\n      Imagery: \"Floor Plan, Cross-section, Dimension Lines.\"\n      Composition: \"Geometric & Orderly Arrangement.\"\n  Typography:\n    Heading: \"Drafting Letters (Architect's Daughter style).\"\n    Style: \"All Capitals, Disciplined.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1TVTcBKUdWJDJzWs988FTOVd1f560psu_",
+    "updatedAt": "2026-01-13T06:27:37.241Z"
+  },
+  {
+    "id": "1768285016812",
+    "title": "黏土定格動畫",
+    "prompt": "Overall Design Settings:\n  Tone: \"Handmade, Fairy Tale, Fun, Soft, Analog.\"\n  Visual Identity:\n    Background Color: \"#87CEEB (Sky Blue) - Set sky.\"\n    Text Color: \"#FFFFFF (White)\"\n    Accent Color: \"#FF6347 (Tomato), #FFD700 (Gold)\"\n    Image Style:\n      Features: \"World of Clay Animation.\"\n      Texture: \"Clay with fingerprints, slight unevenness.\"\n      Lighting: \"Studio lighting with Natural Shadow.\"\n      Motif: \"Round characters and houses.\"\n  Typography:\n    Heading: \"Round Gothic, Handwritten.\"\n    Style: \"Dimensional letters made of clay.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1jdcx5LEDf1KdwLZE4Bjztc4WY9OebQu_",
+    "updatedAt": "2026-01-13T06:18:34.189Z"
+  },
+  {
+    "id": "1768284863404",
+    "title": "塗鴉筆記本",
+    "prompt": "Overall Design Settings:\n  Tone: \"Creative, Rough, Personal, Brainstorming, Authentic.\"\n  Visual Identity:\n    Background Color: \"Lined Notebook Paper, or Graph Paper.\"\n    Text Color: \"#0000CD (Blue Ballpoint ink)\"\n    Accent Color: \"#FF0000 (Red correction ink), #FFFFFF (Paper)\"\n    Image Style:\n      Features: \"Drawn on Lined Paper, Casual Handwritten Aesthetic.\"\n      Imagery: \"Stick Figures, Stars, Arrows, Coffee Stains.\"\n      Composition: \"Marginalia Style, Free Form, Brainstorming Style.\"\n  Typography:\n    Heading: \"Handwritten Font.\"\n    Style: \"Messy, Scribbled, Underlined.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1FD9QwjVpRDFJIGyICyhbJf3F5tU-tdmp",
+    "updatedAt": "2026-01-13T06:16:33.236Z"
+  },
+  {
+    "id": "1768283918182",
+    "title": "手寫粉筆",
+    "prompt": "Overall Design Settings:\n  Tone: \"Familiarity, Handmade, Cafe, Daily Life, Simple.\"\n  Visual Identity:\n    Background Color: \"#2F4F4F (Dark Slate Gray) - Blackboard Color.\"\n    Text Color: \"#FFFFFF (White) - Chalk.\"\n    Accent Color: \"#FF6347 (Tomato), #FFD700 (Yellow)\"\n    Image Style:\n      Features: \"Blackboard Art or Handwritten Menu style.\"\n      Texture: \"Chalk dust, Scratches, Erasure marks.\"\n      Shape: \"Handwritten illustrations and frames.\"\n      Composition: \"Freehand loose layout.\"\n  Typography:\n    Heading: \"Hand-lettering style font.\"\n    Style: \"Uneven size and tilt.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1WNY8buvbJzqV3_xNaXFOYXiylkcohLto",
+    "updatedAt": "2026-01-13T06:12:53.815Z"
+  },
+  {
+    "id": "1768283661377",
+    "title": "復古半色調科幻",
+    "prompt": "Overall Design Settings:\n  Tone: \"Luxurious, Jazz, Frenzy, Gold, Geometric.\"\n  Visual Identity:\n    Background Color: \"#000000 (Black Velvet)\"\n    Text Color: \"#FFD700 (Gold)\"\n    Accent Color: \"#DAA520 (Goldenrod), #F0E68C (Khaki)\"\n    Image Style:\n      Features: \"Great Gatsby style party.\"\n      Motif: \"Geometric frame decoration, Champagne glass, Fireworks.\"\n      Texture: \"Gold leaf, Rich luster.\"\n      Composition: \"Symmetrical gate structure.\"\n  Typography:\n    Heading: \"Art Deco Typeface.\"\n    Style: \"Thin lines and Geometric decoration.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1wjryZ7QybZQMujHEHOIAFxzvNyUiuMW5",
+    "updatedAt": "2026-01-13T06:07:08.044Z"
+  },
+  {
+    "id": "1768283288115",
+    "title": "粉彩多邊形遊戲",
+    "prompt": "Overall Design Settings:\n  Tone: \"Nostalgic, Cute, Digital, Simple, Calm.\"\n  Visual Identity:\n    Background Color: \"Simple gradient sky.\"\n    Text Color: \"#FFB6C1 (Light Pink)\"\n    Accent Color: \"#98FB98 (Mint), #87CEFA (Light Blue), #FFFFE0 (Light Yellow)\"\n    Image Style:\n      Features: \"Aesthetics of early 3D computer graphics with soft lighting.\"\n      Shape: \"Polygon mesh, Triangles, Chamfered surfaces.\"\n      Effects: \"Flat shading (no smoothing), Ambient Occlusion.\"\n      Composition: \"Isometric view or 3/4 view of the scene.\"\n  Typography:\n    Heading: \"Rounded Digital Font.\"\n    Style: \"Simple UI overlay.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1aQg3tZzNMNwO1DpknAG89CeS8E2xNkF6",
+    "updatedAt": "2026-01-13T06:05:52.967Z"
+  },
+  {
+    "id": "1768280647359",
+    "title": "印象派油畫",
+    "prompt": "Overall Design Settings:\n  Tone: \"Artistic, Emotional, Scenic, Timeless, Expressive.\"\n  Visual Identity:\n    Background Color: \"Canvas Texture.\"\n    Text Color: \"Mix of Pastel and Vivid highlights.\"\n    Accent Color: \"#F0E68C (Khaki), #87CEEB (Sky Blue), #DDA0DD (Plum)\"\n    Image Style:\n      Features: \"Fine Art style mimicking thick brushwork and focus on light.\"\n      Imagery: \"Painterly style landscape, Portrait, Still life.\"\n      Effects: \"Impasto (Thick paint texture), Visualization of brushstrokes.\"\n      Composition: \"Organic, Focus on Light and Shadow, Painterly Balance.\"\n  Typography:\n    Heading: \"Classic Serif (e.g. Garamond).\"\n    Style: \"Elegant, casually integrated.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1r08jazIs7qL9JuBpt9iEV3mJj5lDSrLW",
+    "updatedAt": "2026-01-13T06:04:48.536Z"
+  },
+  {
+    "id": "1768280570864",
+    "title": "北歐風極簡自然風",
+    "prompt": "Overall Design Settings:\n  Tone: \"Nordic, Living, Stylish, Natural, Simple.\"\n  Visual Identity:\n    Background Color: \"#FFFFFF (White)\"\n    Text Color: \"#4A4A4A (Dark Gray)\"\n    Accent Color: \"#8FBC8F (Natural Green), #DEB887 (Wood)\"\n    Image Style:\n      Features: \"Nordic textile-like patterns.\"\n      Motif: \"Simplified leaves, birds, flowers.\"\n      Color Tone: \"Calm earth colors and White.\"\n      Atmosphere: \"Bright and cozy.\"\n  Typography:\n    Heading: \"Geometric Sans-serif.\"\n    Style: \"Arrangement utilizing white space.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1zEkQc4kPsL4b5tAGiCmHMJlQVokYFQcX",
+    "updatedAt": "2026-01-13T06:13:43.109Z"
   }
 ];
 
