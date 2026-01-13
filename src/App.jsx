@@ -22,7 +22,10 @@ import {
   Clock,
   Settings,
   HardDrive,
-  Lock // 新增：鎖頭圖示
+  Lock,
+  Zap,
+  Globe,
+  Key
 } from 'lucide-react';
 
 // 預設的風格圖庫，用於自動分派縮圖
@@ -35,8 +38,15 @@ const DEFAULT_THUMBNAILS = [
   'https://images.unsplash.com/photo-1620641788421-7f1c338e61a9?q=80&w=600&auto=format&fit=crop', // Paint
 ];
 
-// 模擬的初始資料
+// 模擬的初始資料 (已整合您的 13 組風格)
 const INITIAL_DATA = [
+  {
+    "id": "1768295797760",
+    "title": "少女漫畫",
+    "prompt": "Overall Design Settings:\n  Tone: \"Girly, Love, Dream, Shoujo Manga, Sparkle.\"\n  Visual Identity:\n    Background Color: \"#FFFFFF (White)\"\n    Text Color: \"#000000 (Black)\"\n    Accent Color: \"Screen Tone Gray.\"\n    Image Style:\n      Features: \"70-80s Shoujo Manga style.\"\n      Effects: \"Roses falling in background, Sparkling Stars.\"\n      Eyes: \"Large eyes with stars.\"\n      Atmosphere: \"Romantic and Emotional.\"\n  Typography:\n    Heading: \"Round Gothic, or Antique.\"\n    Style: \"Decorative and Cute.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/11tnGs6eNJArWzfr0GXKvMLhFt8jrLSBV",
+    "updatedAt": "2026-01-13T09:25:03.577Z"
+  },
   {
     "id": "1768286603435",
     "title": "瑞士風",
@@ -131,22 +141,29 @@ export default function App() {
   // 視圖狀態: 'library' | 'generator' | 'settings'
   const [currentView, setCurrentView] = useState('library');
   
-  // 全域設定狀態
+  // 全域設定狀態 (新增 apiConfig)
   const [appSettings, setAppSettings] = useState({
     defaultWidth: 1024,
     defaultHeight: 1024,
-    defaultSteps: 30
+    defaultSteps: 30,
+    apiUrl: '', // API 網址
+    apiKey: ''  // API 金鑰 (如果需要)
   });
 
   // 互動狀態
-  const [activePrompt, setActivePrompt] = useState(null); // 當前選中要使用或編輯的 Prompt
-  const [isModalOpen, setIsModalOpen] = useState(false); // 新增/編輯視窗
-  const [userInput, setUserInput] = useState(''); // 產生器中的使用者輸入
-  const [generatedResult, setGeneratedResult] = useState(null); // 最終生成的 JSON
-  const fileInputRef = useRef(null); // 用於匯入檔案
+  const [activePrompt, setActivePrompt] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [userInput, setUserInput] = useState('');
+  const [generatedResult, setGeneratedResult] = useState(null);
   
-  // 權限驗證狀態 (新增)
-  const [authAction, setAuthAction] = useState(null); // { type: 'edit' | 'delete', data: any }
+  // 新增：圖片生成狀態
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState(null);
+
+  const fileInputRef = useRef(null);
+  
+  // 權限驗證狀態
+  const [authAction, setAuthAction] = useState(null); 
   const [passwordInput, setPasswordInput] = useState('');
 
   // 輔助狀態
@@ -206,8 +223,8 @@ export default function App() {
     return date.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  // --- 資料匯入匯出 (GitHub Ready) ---
-
+  // --- 資料匯入匯出 ---
+  // (與先前相同，省略部分註解以節省空間)
   const handleExport = () => {
     const exportData = {
       version: "1.0",
@@ -215,7 +232,6 @@ export default function App() {
       settings: appSettings,
       prompts: prompts
     };
-    
     const dataStr = JSON.stringify(exportData, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -235,7 +251,6 @@ export default function App() {
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -258,8 +273,7 @@ export default function App() {
     event.target.value = '';
   };
 
-  // --- 權限驗證邏輯 (New) ---
-  
+  // --- 權限驗證邏輯 ---
   const requestAuth = (e, type, data) => {
     e.stopPropagation();
     setAuthAction({ type, data });
@@ -272,7 +286,7 @@ export default function App() {
         setActivePrompt({ ...authAction.data });
         setIsModalOpen(true);
       } else if (authAction.type === 'delete') {
-        setDeleteId(authAction.data); // 驗證成功後，開啟原本的刪除確認視窗
+        setDeleteId(authAction.data);
       }
       setAuthAction(null);
       setPasswordInput('');
@@ -282,10 +296,8 @@ export default function App() {
     }
   };
 
-  // --- 管理邏輯 (CRUD) ---
-
+  // --- 管理邏輯 ---
   const openCreator = () => {
-    // 新增不需要密碼 (除非您也想鎖定)
     setActivePrompt({
       id: Date.now().toString(),
       title: '',
@@ -295,8 +307,6 @@ export default function App() {
     });
     setIsModalOpen(true);
   };
-
-  // 舊的 openEditor 與 confirmDelete 已被 requestAuth 取代，但保留 executeDelete
 
   const executeDelete = () => {
     if (deleteId) {
@@ -320,40 +330,30 @@ export default function App() {
       return;
     }
 
-    // --- 新增：Google Drive 連結自動轉換邏輯 (修復版) ---
     let finalThumbnail = activePrompt.thumbnail.trim();
-    
-    // 檢查是否為 Google Drive 連結 (包含 file/d/ 或 id=)
     if (finalThumbnail.includes('drive.google.com')) {
       let fileId = '';
-      // 嘗試匹配 /file/d/xxxx
       const fileIdMatch = finalThumbnail.match(/\/d\/([a-zA-Z0-9_-]+)/);
       if (fileIdMatch && fileIdMatch[1]) {
         fileId = fileIdMatch[1];
       } else {
-        // 嘗試匹配 id=xxxx
         const idMatch = finalThumbnail.match(/[?&]id=([a-zA-Z0-9_-]+)/);
         if (idMatch && idMatch[1]) {
           fileId = idMatch[1];
         }
       }
-
       if (fileId) {
-        // 使用 lh3.googleusercontent.com 格式，這是目前針對公開檔案最穩定的圖床連結
-        // 它可以繞過部分 Google Drive 的防盜連機制
         finalThumbnail = `https://lh3.googleusercontent.com/d/${fileId}`;
       }
     }
-    // ------------------------------------------
 
     const promptToSave = {
       ...activePrompt,
-      thumbnail: finalThumbnail || getRandomThumbnail(), // 使用轉換後的網址
+      thumbnail: finalThumbnail || getRandomThumbnail(),
       updatedAt: new Date().toISOString()
     };
 
     const exists = prompts.find(p => p.id === promptToSave.id);
-    
     if (exists) {
       setPrompts(prompts.map(p => p.id === promptToSave.id ? promptToSave : p));
       handleToast('更新成功');
@@ -368,17 +368,19 @@ export default function App() {
     localStorage.removeItem('nano-banana-prompts-v2');
     localStorage.removeItem('nano-banana-settings');
     setPrompts(INITIAL_DATA);
-    setAppSettings({ defaultWidth: 1024, defaultHeight: 1024, defaultSteps: 30 });
+    setAppSettings({ defaultWidth: 1024, defaultHeight: 1024, defaultSteps: 30, apiUrl: '', apiKey: '' });
     handleToast('系統已完全重置');
     setConfirmReset(false);
   };
 
-  // --- 產生器邏輯 (Generator) ---
+  // --- 產生器邏輯 (包含 API 呼叫) ---
 
   const enterGenerator = (prompt) => {
     setActivePrompt(prompt);
     setUserInput('');
     setGeneratedResult(null);
+    setGeneratedImage(null); // 清除上次的圖片
+    setIsGenerating(false);
     setCurrentView('generator');
     window.scrollTo(0, 0);
   };
@@ -386,25 +388,75 @@ export default function App() {
   const generateFinalPayload = () => {
     if (!userInput.trim()) {
       handleToast('請輸入您想產生的內容描述');
-      return;
+      return null;
     }
 
     const finalPrompt = `${userInput}, ${activePrompt.prompt}`;
 
     const payload = {
-      action: "generate",
-      engine: "nano-banana-pro",
+      // 這裡可以根據您的 API 需求調整欄位
       prompt: finalPrompt,
-      parameters: {
-        width: appSettings.defaultWidth,
-        height: appSettings.defaultHeight,
-        steps: appSettings.defaultSteps,
-        cfg_scale: 7.0
-      }
+      negative_prompt: "low quality, bad anatomy, worst quality, lowres",
+      width: appSettings.defaultWidth,
+      height: appSettings.defaultHeight,
+      steps: appSettings.defaultSteps,
+      cfg_scale: 7.0
     };
 
-    setGeneratedResult(JSON.stringify(payload, null, 2));
-    handleToast('指令已生成！');
+    const jsonStr = JSON.stringify(payload, null, 2);
+    setGeneratedResult(jsonStr);
+    return payload; // 回傳給 API 用
+  };
+
+  // --- 核心：呼叫 API 生成圖片 ---
+  const handleApiGenerate = async () => {
+    if (!appSettings.apiUrl) {
+      handleToast('請先至「系統設定」填寫 API 網址！');
+      return;
+    }
+
+    const payload = generateFinalPayload();
+    if (!payload) return;
+
+    setIsGenerating(true);
+    setGeneratedImage(null);
+
+    try {
+      // 這是一個通用的 POST 請求範本
+      const response = await fetch(appSettings.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': appSettings.apiKey ? `Bearer ${appSettings.apiKey}` : undefined // 如果有 Key 就帶上
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        throw new Error(`API 錯誤: ${response.status}`);
+      }
+
+      // 假設 API 回傳的是 JSON，其中包含 image_url 或 base64
+      // 您可能需要根據實際 API 回傳格式調整這裡
+      const data = await response.json();
+      
+      // 嘗試抓取圖片網址或 Base64
+      const imgSource = data.output?.[0] || data.image_url || data.image || data.base64; 
+      
+      if (imgSource) {
+        setGeneratedImage(imgSource);
+        handleToast('圖片生成成功！');
+      } else {
+        handleToast('API 回傳成功，但找不到圖片欄位');
+        console.log('API Response:', data);
+      }
+
+    } catch (error) {
+      console.error('Generation failed:', error);
+      handleToast(`生成失敗: ${error.message}`);
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const copyResult = () => {
@@ -509,6 +561,7 @@ export default function App() {
         {/* === 視圖 1: Library (列表) === */}
         {currentView === 'library' && (
           <>
+            {/* ... Library UI (不變) ... */}
             <div className="flex justify-between items-end mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">風格選擇</h2>
@@ -523,20 +576,17 @@ export default function App() {
               {filteredPrompts.map(prompt => (
                 <div 
                   key={prompt.id} 
-                  onClick={() => enterGenerator(prompt)} // 點擊整張卡片進入產生器
+                  onClick={() => enterGenerator(prompt)}
                   className="group bg-white rounded-xl shadow-sm hover:shadow-xl hover:shadow-yellow-100/50 border border-slate-200 overflow-hidden transition-all duration-300 flex flex-col cursor-pointer transform hover:-translate-y-1"
                 >
-                  {/* 縮圖區域 */}
+                  {/* ... Card Content (不變) ... */}
                   <div className="relative aspect-[3/2] bg-slate-100 overflow-hidden">
                     <img 
                       src={prompt.thumbnail} 
                       alt={prompt.title} 
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       referrerPolicy="no-referrer"
-                      onError={(e) => {
-                         e.target.onerror = null; 
-                         e.target.src = "https://placehold.co/600x400/f1f5f9/94a3b8?text=No+Preview";
-                      }} 
+                      onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/600x400/f1f5f9/94a3b8?text=No+Preview"; }} 
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                        <div className="bg-white/90 text-slate-900 px-4 py-2 rounded-full font-bold text-sm opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all flex items-center gap-2 shadow-lg">
@@ -545,61 +595,33 @@ export default function App() {
                        </div>
                     </div>
                   </div>
-
-                  {/* 卡片內容 */}
                   <div className="p-4 flex-1 flex flex-col">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-slate-800 line-clamp-1 group-hover:text-yellow-600 transition-colors">
-                        {prompt.title}
-                      </h3>
+                      <h3 className="font-bold text-slate-800 line-clamp-1 group-hover:text-yellow-600 transition-colors">{prompt.title}</h3>
                     </div>
-                    
-                    <p className="text-slate-400 text-xs line-clamp-2 mb-4 flex-1">
-                      {prompt.prompt}
-                    </p>
-
-                    {/* 管理按鈕區 (需權限驗證) */}
+                    <p className="text-slate-400 text-xs line-clamp-2 mb-4 flex-1">{prompt.prompt}</p>
                     <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-slate-400">
-                      <div className="flex items-center gap-1 text-[10px] bg-slate-50 px-2 py-1 rounded text-slate-400" title={`最後更新: ${formatDate(prompt.updatedAt)}`}>
+                      <div className="flex items-center gap-1 text-[10px] bg-slate-50 px-2 py-1 rounded text-slate-400">
                         <Clock className="w-3 h-3" />
                         <span>{formatDate(prompt.updatedAt) || '初始資料'}</span>
                       </div>
                       <div className="flex gap-1 z-10">
-                        <button 
-                          onClick={(e) => requestAuth(e, 'edit', prompt)} // 改用 requestAuth
-                          className="p-2 hover:bg-slate-100 hover:text-slate-700 rounded-full transition-colors"
-                          title="管理/編輯 (需密碼)"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={(e) => requestAuth(e, 'delete', prompt.id)} // 改用 requestAuth
-                          className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full transition-colors"
-                          title="刪除 (需密碼)"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <button onClick={(e) => requestAuth(e, 'edit', prompt)} className="p-2 hover:bg-slate-100 hover:text-slate-700 rounded-full transition-colors"><Edit3 className="w-4 h-4" /></button>
+                        <button onClick={(e) => requestAuth(e, 'delete', prompt.id)} className="p-2 hover:bg-red-50 hover:text-red-600 rounded-full transition-colors"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </div>
                   </div>
                 </div>
               ))}
-              
-              {/* 新增卡片佔位符 */}
-              <div 
-                onClick={openCreator}
-                className="group border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center p-6 text-slate-400 hover:border-yellow-400 hover:text-yellow-600 hover:bg-yellow-50/50 cursor-pointer transition-all min-h-[300px]"
-              >
-                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-yellow-100 transition-colors">
-                  <Plus className="w-8 h-8" />
-                </div>
+              <div onClick={openCreator} className="group border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center p-6 text-slate-400 hover:border-yellow-400 hover:text-yellow-600 hover:bg-yellow-50/50 cursor-pointer transition-all min-h-[300px]">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-yellow-100 transition-colors"><Plus className="w-8 h-8" /></div>
                 <span className="font-medium">新增風格</span>
               </div>
             </div>
           </>
         )}
 
-        {/* === 視圖 2: Generator (產生器) === */}
+        {/* === 視圖 2: Generator (產生器 - 增強版) === */}
         {currentView === 'generator' && activePrompt && (
           <div className="animate-simple-fade-up max-w-5xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -608,12 +630,7 @@ export default function App() {
               <div className="lg:col-span-1 space-y-4">
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                   <div className="aspect-video rounded-lg overflow-hidden bg-slate-100 mb-4">
-                    <img 
-                      src={activePrompt.thumbnail} 
-                      className="w-full h-full object-cover" 
-                      alt="style" 
-                      referrerPolicy="no-referrer"
-                    />
+                    <img src={activePrompt.thumbnail} className="w-full h-full object-cover" alt="style" referrerPolicy="no-referrer" />
                   </div>
                   <h3 className="font-bold text-lg text-slate-800">{activePrompt.title}</h3>
                   <div className="mt-2 text-xs text-slate-500 bg-slate-50 p-3 rounded border border-slate-100 font-mono break-all">
@@ -635,31 +652,68 @@ export default function App() {
                     placeholder="例如：一隻戴著太陽眼鏡的貓在海灘上喝可樂..."
                     className="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:outline-none resize-none text-slate-700"
                   />
-                  <div className="mt-4 flex justify-end">
+                  <div className="mt-4 flex flex-wrap justify-end gap-3">
                     <button 
-                      onClick={generateFinalPayload}
-                      disabled={!userInput.trim()}
+                      onClick={() => { generateFinalPayload(); handleToast('指令已更新'); }}
+                      className="px-4 py-3 bg-slate-100 text-slate-600 rounded-lg font-medium text-sm hover:bg-slate-200 transition-colors"
+                    >
+                      僅生成 JSON
+                    </button>
+                    <button 
+                      onClick={handleApiGenerate}
+                      disabled={isGenerating || !userInput.trim()}
                       className={`
                         flex items-center gap-2 px-6 py-3 rounded-lg font-bold text-white transition-all shadow-lg
-                        ${userInput.trim() 
-                          ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transform hover:-translate-y-0.5' 
-                          : 'bg-slate-300 cursor-not-allowed'}
+                        ${isGenerating || !userInput.trim()
+                          ? 'bg-slate-300 cursor-not-allowed' 
+                          : 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 transform hover:-translate-y-0.5'}
                       `}
                     >
-                      <Wand2 className="w-5 h-5" />
-                      產生最終指令
+                      {isGenerating ? (
+                        <>
+                          <RefreshCw className="w-5 h-5 animate-spin" />
+                          生成中...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-5 h-5 fill-current" />
+                          開始生成圖片 (API)
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
 
-                {generatedResult && (
+                {/* 生成結果區域 */}
+                {(generatedResult || generatedImage) && (
                   <div className="bg-slate-900 rounded-xl p-6 border border-slate-800 animate-slide-in-right relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-10">
-                      <Terminal className="w-32 h-32 text-white" />
-                    </div>
+                    
+                    {/* 如果有圖片，顯示圖片 */}
+                    {generatedImage && (
+                      <div className="mb-6">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="text-white font-bold flex items-center gap-2">
+                            <ImageIcon className="w-5 h-5 text-green-400" /> 生成結果圖片
+                          </h4>
+                          <a 
+                            href={generatedImage} 
+                            download="generated-image.png" 
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors"
+                          >
+                            <Download className="w-3 h-3" /> 下載圖片
+                          </a>
+                        </div>
+                        <div className="rounded-lg overflow-hidden border border-slate-700 bg-black/50 flex justify-center">
+                          <img src={generatedImage} alt="Generated" className="max-w-full h-auto max-h-[500px] object-contain" />
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex justify-between items-center mb-4 relative z-10">
                       <h4 className="text-yellow-400 font-bold flex items-center gap-2">
-                        <Check className="w-5 h-5" /> 生成結果 (Ready for Nano Banana)
+                        <Check className="w-5 h-5" /> 最終指令 (JSON Payload)
                       </h4>
                       <button 
                         onClick={copyResult}
@@ -673,9 +727,6 @@ export default function App() {
                       <div className="bg-black/50 rounded-lg p-4 font-mono text-xs text-green-400 overflow-x-auto whitespace-pre-wrap leading-relaxed border border-white/10">
                         {generatedResult}
                       </div>
-                      <p className="text-slate-500 text-xs mt-3 text-center">
-                        此 JSON 已包含您的內容描述與選定的風格 Prompt。
-                      </p>
                     </div>
                   </div>
                 )}
@@ -684,7 +735,7 @@ export default function App() {
           </div>
         )}
 
-        {/* === 視圖 3: Settings (設定頁面) === */}
+        {/* === 視圖 3: Settings (設定頁面 - 新增 API 設定) === */}
         {currentView === 'settings' && (
           <div className="max-w-3xl mx-auto animate-simple-fade-up">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -693,10 +744,48 @@ export default function App() {
                   <Settings className="w-6 h-6 text-slate-600" />
                   系統設定
                 </h2>
-                <p className="text-slate-500 text-sm mt-1">管理資料備份與產生器預設值</p>
+                <p className="text-slate-500 text-sm mt-1">管理資料備份、預設值與 API 連線</p>
               </div>
 
               <div className="p-6 space-y-8">
+                
+                {/* 0. API 連線設定 (新增) */}
+                <section>
+                  <h3 className="text-sm font-bold text-blue-600 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <Globe className="w-4 h-4" /> API 連線設定 (進階)
+                  </h3>
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-5 space-y-4">
+                    <p className="text-xs text-blue-700 mb-2">
+                      若您有架設 Stable Diffusion API 或其他繪圖後端，請在此填入資訊以啟用「直接生成」功能。
+                    </p>
+                    <div>
+                      <label className="block text-sm font-medium text-blue-800 mb-1">API 網址 (Endpoint URL)</label>
+                      <input 
+                        type="text" 
+                        value={appSettings.apiUrl}
+                        onChange={(e) => setAppSettings({...appSettings, apiUrl: e.target.value})}
+                        className="w-full px-4 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                        placeholder="e.g., http://127.0.0.1:7860/sdapi/v1/txt2img"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-blue-800 mb-1">API 金鑰 (Authorization Key) - 選填</label>
+                      <div className="relative">
+                        <Key className="absolute left-3 top-2.5 w-4 h-4 text-blue-300" />
+                        <input 
+                          type="password" 
+                          value={appSettings.apiKey}
+                          onChange={(e) => setAppSettings({...appSettings, apiKey: e.target.value})}
+                          className="w-full pl-10 pr-4 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                          placeholder="若 API 需要驗證，請在此填入 Key"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <hr className="border-slate-100" />
+
                 {/* 1. 資料管理區 */}
                 <section>
                   <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center gap-2">
@@ -706,23 +795,12 @@ export default function App() {
                     <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 transition-colors">
                       <h4 className="font-bold text-slate-800 mb-1">匯出備份 (Backup)</h4>
                       <p className="text-xs text-slate-500 mb-4">下載所有風格資料與設定為 JSON 檔。</p>
-                      <button 
-                        onClick={handleExport}
-                        className="w-full py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center gap-2"
-                      >
-                        <Download className="w-4 h-4" /> 下載 JSON
-                      </button>
+                      <button onClick={handleExport} className="w-full py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center gap-2"><Download className="w-4 h-4" /> 下載 JSON</button>
                     </div>
-
                     <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-slate-300 transition-colors">
                       <h4 className="font-bold text-slate-800 mb-1">匯入備份 (Restore)</h4>
                       <p className="text-xs text-slate-500 mb-4">從 JSON 檔案還原所有資料。</p>
-                      <button 
-                        onClick={handleImportClick}
-                        className="w-full py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center gap-2"
-                      >
-                        <Upload className="w-4 h-4" /> 選擇檔案
-                      </button>
+                      <button onClick={handleImportClick} className="w-full py-2 bg-white border border-slate-200 rounded-lg text-slate-600 text-sm font-medium hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center gap-2"><Upload className="w-4 h-4" /> 選擇檔案</button>
                     </div>
                   </div>
                 </section>
@@ -737,30 +815,15 @@ export default function App() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-2">預設寬度 (Width)</label>
-                      <input 
-                        type="number" 
-                        value={appSettings.defaultWidth}
-                        onChange={(e) => setAppSettings({...appSettings, defaultWidth: parseInt(e.target.value) || 1024})}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                      />
+                      <input type="number" value={appSettings.defaultWidth} onChange={(e) => setAppSettings({...appSettings, defaultWidth: parseInt(e.target.value) || 1024})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-2">預設高度 (Height)</label>
-                      <input 
-                        type="number" 
-                        value={appSettings.defaultHeight}
-                        onChange={(e) => setAppSettings({...appSettings, defaultHeight: parseInt(e.target.value) || 1024})}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                      />
+                      <input type="number" value={appSettings.defaultHeight} onChange={(e) => setAppSettings({...appSettings, defaultHeight: parseInt(e.target.value) || 1024})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-600 mb-2">預設步數 (Steps)</label>
-                      <input 
-                        type="number" 
-                        value={appSettings.defaultSteps}
-                        onChange={(e) => setAppSettings({...appSettings, defaultSteps: parseInt(e.target.value) || 30})}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-                      />
+                      <input type="number" value={appSettings.defaultSteps} onChange={(e) => setAppSettings({...appSettings, defaultSteps: parseInt(e.target.value) || 30})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
                     </div>
                   </div>
                 </section>
@@ -777,12 +840,7 @@ export default function App() {
                       <h4 className="font-bold text-red-900 text-sm">重置系統 (Factory Reset)</h4>
                       <p className="text-xs text-red-700 mt-1">這將會清除所有本地資料，還原至初始狀態。</p>
                     </div>
-                    <button 
-                      onClick={() => setConfirmReset(true)}
-                      className="px-4 py-2 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-600 hover:text-white transition-colors"
-                    >
-                      重置所有資料
-                    </button>
+                    <button onClick={() => setConfirmReset(true)} className="px-4 py-2 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-600 hover:text-white transition-colors">重置所有資料</button>
                   </div>
                 </section>
               </div>
@@ -791,137 +849,59 @@ export default function App() {
         )}
       </main>
 
-      {/* 新增/編輯 Modal */}
+      {/* 新增/編輯 Modal (與先前相同) */}
       {isModalOpen && activePrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-modal-pop overflow-hidden flex flex-col max-h-[90vh]">
-            
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white">
-              <h3 className="text-lg font-bold text-slate-800">
-                {prompts.find(p => p.id === activePrompt.id) ? '編輯風格' : '新增風格'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-6 h-6" />
-              </button>
+              <h3 className="text-lg font-bold text-slate-800">{prompts.find(p => p.id === activePrompt.id) ? '編輯風格' : '新增風格'}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-6 h-6" /></button>
             </div>
-
             <div className="p-6 space-y-5 overflow-y-auto">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">標題名稱</label>
-                <input 
-                  type="text"
-                  value={activePrompt.title}
-                  onChange={(e) => setActivePrompt({...activePrompt, title: e.target.value})}
-                  className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none"
-                  placeholder="例如：日系動漫風格"
-                />
+                <input type="text" value={activePrompt.title} onChange={(e) => setActivePrompt({...activePrompt, title: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none" placeholder="例如：日系動漫風格" />
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">繪圖風格 Prompt</label>
-                <textarea 
-                  value={activePrompt.prompt}
-                  onChange={(e) => setActivePrompt({...activePrompt, prompt: e.target.value})}
-                  className="w-full h-32 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none resize-none font-mono text-sm"
-                  placeholder="例如：anime style, vibrant colors, cel shading..."
-                />
-                <p className="text-xs text-slate-400 mt-1">請只輸入風格描述詞，不要包含內容。</p>
+                <textarea value={activePrompt.prompt} onChange={(e) => setActivePrompt({...activePrompt, prompt: e.target.value})} className="w-full h-32 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none resize-none font-mono text-sm" placeholder="例如：anime style, vibrant colors, cel shading..." />
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">縮圖連結 (選填)</label>
                 <div className="flex gap-2">
-                  <input 
-                    type="text"
-                    value={activePrompt.thumbnail}
-                    onChange={(e) => setActivePrompt({...activePrompt, thumbnail: e.target.value})}
-                    className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none text-sm"
-                    placeholder="https://..."
-                  />
-                  <button 
-                    onClick={() => setActivePrompt({...activePrompt, thumbnail: getRandomThumbnail()})}
-                    className="bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-lg"
-                    title="隨機產生"
-                  >
-                    <RefreshCw className="w-5 h-5" />
-                  </button>
+                  <input type="text" value={activePrompt.thumbnail} onChange={(e) => setActivePrompt({...activePrompt, thumbnail: e.target.value})} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none text-sm" placeholder="https://..." />
+                  <button onClick={() => setActivePrompt({...activePrompt, thumbnail: getRandomThumbnail()})} className="bg-slate-100 hover:bg-slate-200 text-slate-600 p-2 rounded-lg"><RefreshCw className="w-5 h-5" /></button>
                 </div>
-                <p className="text-xs text-yellow-600 mt-2 flex items-center gap-1">
-                  <Wand2 className="w-3 h-3" />
-                  若留空，系統將自動產生隨機風格圖。
-                </p>
-                {activePrompt.thumbnail && (
-                  <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 h-32 w-full bg-slate-50">
-                    <img 
-                      src={activePrompt.thumbnail} 
-                      className="w-full h-full object-cover" 
-                      alt="Preview" 
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                )}
+                <p className="text-xs text-yellow-600 mt-2 flex items-center gap-1"><Wand2 className="w-3 h-3" /> 若留空，系統將自動產生隨機風格圖。</p>
+                {activePrompt.thumbnail && <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 h-32 w-full bg-slate-50"><img src={activePrompt.thumbnail} className="w-full h-full object-cover" alt="Preview" referrerPolicy="no-referrer" /></div>}
               </div>
             </div>
-
             <div className="p-4 border-t border-slate-100 bg-slate-50">
-              <button 
-                onClick={handleSave}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors shadow-lg"
-              >
-                確認儲存
-              </button>
+              <button onClick={handleSave} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors shadow-lg">確認儲存</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 密碼驗證 Modal (新增) */}
+      {/* 密碼驗證/刪除/重置 Modal (與先前相同，省略以節省空間) */}
       {authAction && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-modal-pop">
-            <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mb-4 mx-auto">
-              <Lock className="w-6 h-6" />
-            </div>
+            <div className="w-12 h-12 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mb-4 mx-auto"><Lock className="w-6 h-6" /></div>
             <h3 className="text-lg font-bold text-slate-900 mb-2">權限驗證</h3>
-            <p className="text-sm text-slate-500 mb-4">
-              此操作需要管理員權限，請輸入密碼。
-            </p>
-            
-            <input 
-              type="password"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none text-center mb-4 font-mono text-lg"
-              placeholder="請輸入密碼"
-              autoFocus
-              onKeyDown={(e) => e.key === 'Enter' && verifyAuth()}
-            />
-
+            <p className="text-sm text-slate-500 mb-4">此操作需要管理員權限，請輸入密碼。</p>
+            <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none text-center mb-4 font-mono text-lg" placeholder="請輸入密碼" autoFocus onKeyDown={(e) => e.key === 'Enter' && verifyAuth()} />
             <div className="flex gap-3">
-              <button 
-                onClick={() => setAuthAction(null)} 
-                className="flex-1 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200"
-              >
-                取消
-              </button>
-              <button 
-                onClick={verifyAuth} 
-                className="flex-1 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 shadow-lg"
-              >
-                確認
-              </button>
+              <button onClick={() => setAuthAction(null)} className="flex-1 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium hover:bg-slate-200">取消</button>
+              <button onClick={verifyAuth} className="flex-1 py-2 bg-slate-900 text-white rounded-lg font-medium hover:bg-slate-800 shadow-lg">確認</button>
             </div>
           </div>
         </div>
       )}
-
-      {/* 刪除確認 Modal */}
       {deleteId && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-modal-pop">
-            <div className="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4 mx-auto">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
+            <div className="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4 mx-auto"><AlertTriangle className="w-6 h-6" /></div>
             <h3 className="text-lg font-bold text-slate-900 mb-2">確定刪除此風格？</h3>
             <p className="text-sm text-slate-500 mb-6">此動作無法復原。</p>
             <div className="flex gap-3">
@@ -931,61 +911,29 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* 重置確認 Modal */}
       {confirmReset && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-modal-pop">
-            <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-4 mx-auto">
-              <RotateCcw className="w-6 h-6" />
-            </div>
+            <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-4 mx-auto"><RotateCcw className="w-6 h-6" /></div>
             <h3 className="text-lg font-bold text-slate-900 mb-2">重置所有資料？</h3>
-            <p className="text-sm text-slate-500 mb-6">
-              這將會清除您目前所有的修改，並還原到預設範例資料。
-            </p>
+            <p className="text-sm text-slate-500 mb-6">這將會清除您目前所有的修改，並還原到預設範例資料。</p>
             <div className="flex gap-3 w-full">
-              <button 
-                onClick={() => setConfirmReset(false)}
-                className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                取消
-              </button>
-              <button 
-                onClick={handleReset}
-                className="flex-1 px-4 py-2 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition-colors shadow-lg"
-              >
-                確認重置
-              </button>
+              <button onClick={() => setConfirmReset(false)} className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 font-medium rounded-lg hover:bg-slate-200 transition-colors">取消</button>
+              <button onClick={handleReset} className="flex-1 px-4 py-2 bg-slate-900 text-white font-medium rounded-lg hover:bg-slate-800 transition-colors shadow-lg">確認重置</button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Toast */}
       {showToast && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 animate-fade-in-up z-[70]">
-          <Check className="w-4 h-4 text-green-400" />
-          <span className="text-sm font-medium">{toastMsg}</span>
+          <Check className="w-4 h-4 text-green-400" /><span className="text-sm font-medium">{toastMsg}</span>
         </div>
       )}
-
       <style>{`
-        @keyframes slide-in-right {
-          from { transform: translateX(20px); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes fade-in-up {
-          from { transform: translate(-50%, 20px); opacity: 0; }
-          to { transform: translate(-50%, 0); opacity: 1; }
-        }
-        @keyframes simple-fade-up {
-          from { transform: translateY(20px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes modal-pop {
-          from { transform: scale(0.95) translateY(10px); opacity: 0; }
-          to { transform: scale(1) translateY(0); opacity: 1; }
-        }
+        @keyframes slide-in-right { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fade-in-up { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        @keyframes simple-fade-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes modal-pop { from { transform: scale(0.95) translateY(10px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
         .animate-slide-in-right { animation: slide-in-right 0.3s ease-out; }
         .animate-fade-in-up { animation: fade-in-up 0.3s ease-out; }
         .animate-simple-fade-up { animation: simple-fade-up 0.3s ease-out; }
