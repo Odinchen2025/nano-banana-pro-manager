@@ -38,8 +38,22 @@ const DEFAULT_THUMBNAILS = [
   'https://images.unsplash.com/photo-1620641788421-7f1c338e61a9?q=80&w=600&auto=format&fit=crop', // Paint
 ];
 
-// 模擬的初始資料 (已整合您的 13 組風格)
+// 模擬的初始資料 (已整合您的 15 組風格)
 const INITIAL_DATA = [
+  {
+    "id": "1768468084003",
+    "title": "扁平圖標",
+    "prompt": "Overall Design Settings:\n  Tone: \"Information Transmission, Universal, Simple, Education, Clear.\"\n  Visual Identity:\n    Background Color: \"#F0F0F0 (Light Gray)\"\n    Text Color: \"#333333 (Charcoal)\"\n    Accent Color: \"#FF8C00 (Dark Orange)\"\n    Image Style:\n      Features: \"Isotype (Repetition of Pictograms and Quantity Expression).\"\n      Style: \"Flat Design without Shadow.\"\n      Imagery: \"Human Icon, Vehicle, Building.\"\n      Composition: \"Orderly Alignment.\"\n  Typography:\n    Heading: \"Sans-serif like Helvetica.\"\n    Style: \"Inorganic and Objective Placement.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1XajuhCIcXIb3VDSDXRNhiHV2It-y6nXk",
+    "updatedAt": "2026-01-15T09:12:22.054Z"
+  },
+  {
+    "id": "1768465441296",
+    "title": "向量極簡藍色",
+    "prompt": "Overall Design Settings:\n  Tone: \"Sincere, Professional, Refined, Serene\"\n  Visual Identity:\n    Background Color: \"Pure White (#FFFFFF) or Pale Blue Gray (#F5F7FA)\"\n    Text Color: \"Navy Blue (#0A2540) - Conveys trust\"\n    Accent Color: \"Royal Blue (#0052CC) or Intelligent Blue (#00B8D9)\"\n    Image Style:\n      Features: \"Flat Vector Illustration, Geometric Shapes, Clean Composition\"\n      Shape: \"Sharp Edges, or Orderly Circles\"\n  Typography:\n    Heading: \"Modern Bold Sans-serif (Inter, Helvetica). Wide Kerning for Intellectual Feel.\"\n    Body: \"Clean Sans-serif. Readability First.\"\n    Numbers: \"Monospace or Geometric Numerals. Shows Data Precisely.\"",
+    "thumbnail": "https://lh3.googleusercontent.com/d/1cNYq0EG1DlIAMjwPiwXRgPJDqiXkczGC",
+    "updatedAt": "2026-01-15T08:27:24.506Z"
+  },
   {
     "id": "1768295797760",
     "title": "少女漫畫",
